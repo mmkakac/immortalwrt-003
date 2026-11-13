@@ -132,6 +132,9 @@ jobs:
         mkdir -p openwrt/package/kernel/mac80211/patches/ath
         [ -d "$KIT_DIR/patches" ] && cp "$KIT_DIR/patches"/*.patch openwrt/package/kernel/mac80211/patches/ath/ || true
         [ -d "$KIT_DIR/files" ] && cp -r "$KIT_DIR/files" openwrt/files || true
+        # 固化的 openstick feed（本地 src-link 接入，见 diy-part1.sh）
+        mkdir -p openwrt/ufi001c
+        [ -d "$KIT_DIR/feed-openstick" ] && cp -r "$KIT_DIR/feed-openstick" openwrt/ufi001c/feed-openstick || true
 
     - name: diy1 + feeds
       env:
