@@ -1,0 +1,300 @@
+name: Build ImmortalWrt · UFI001C
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: 'lean / full'
+        required: true
+        type: choice
+        options:
+          - lean
+          - full
+        default: lean
+      extra_feeds:
+        description: '追加第三方feed'
+        required: false
+        type: boolean
+        default: false
+      ssh:
+        description: '现场诊断（采集 Arch/链接/DUMP 进日志）'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: write
+
+env:
+  KIT_DIR: ufi001c
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+
+    - name: 选择配置版本
+      id: variant
+      run: |
+        V="${{ inputs.variant }}"
+        [ -z "$V" ] && V="lean"
+        echo "variant=$V" >> "$GITHUB_OUTPUT"
+
+    - name: 判断源码来源
+      id: src
+      run: |
+        if [ -f include/toplevel.mk ]; then
+          echo "url=${{ github.server_url }}/${{ github.repository }}" >> "$GITHUB_OUTPUT"
+          echo "ref=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+        else
+          echo "url=https://github.com/lkiuyu/immortalwrt" >> "$GITHUB_OUTPUT"
+          echo "ref=master" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: 释放磁盘空间
+      uses: jlumbroso/free-disk-space@main
+      with:
+        tool-cache: false
+        android: true
+        dotnet: true
+        haskell: true
+        large-packages: true
+        docker-images: true
+        swap-storage: true
+
+    - name: 安装编译依赖
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        sudo apt-get -qq update
+        DEPS="ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache
+        clang cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib
+        git gnutls-dev gperf haveged help2man intltool libelf-dev libglib2.0-dev libgmp3-dev libltdl-dev
+        libmpc-dev libmpfr-dev libncurses-dev libpython3-dev libreadline-dev libssl-dev libtool libyaml-dev
+        lrzsz msmtp nano ninja-build p7zip p7zip-full patch pkgconf python3 python3-pip python3-ply
+        python3-pyelftools python3-setuptools python3-dev libffi-dev quilt rsync scons squashfs-tools
+        subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev zstd jq bc file
+        time libfuse-dev mkbootimg android-sdk-libsparse-utils"
+        INSTALL=""
+        for p in $DEPS; do
+          if apt-cache show "$p" >/dev/null 2>&1; then INSTALL="$INSTALL $p"; else echo "跳过: $p"; fi
+        done
+        sudo apt-get -qq install -y $INSTALL
+        sudo apt-get -qq clean
+        for t in mkbootimg img2simg dtc; do
+          command -v "$t" >/dev/null 2>&1 && echo "OK $t" || echo "缺失 $t"
+        done
+        if ! command -v mkbootimg >/dev/null 2>&1; then
+          wget -q https://github.com/xuxin1955/depend_ubuntu2204_openwrt/releases/download/ubuntu_26.04_LTS_mkbootimg/mkbootimg_34.0.5-12build1_all.deb
+          sudo dpkg -i mkbootimg_34.0.5-12build1_all.deb || sudo apt-get -f -qq install -y
+        fi
+        sudo timedatectl set-timezone "$TZ"
+        sudo mkdir -p /workdir
+        sudo chown "$USER":"$GROUPS" /workdir
+
+    - name: Clone source code
+      working-directory: /workdir
+      run: |
+        git clone "${{ steps.src.outputs.url }}" -b "${{ steps.src.outputs.ref }}" --depth 1 --single-branch openwrt
+        ln -sf /workdir/openwrt "$GITHUB_WORKSPACE"/openwrt
+
+    - name: 缓存下载包
+      uses: actions/cache@v4
+      with:
+        path: /workdir/openwrt/dl
+        key: openwrt-dl-${{ steps.variant.outputs.variant }}
+        restore-keys: |
+          openwrt-dl-
+
+    - name: 放入配置与补丁
+      run: |
+        # 种子 .config 延迟到 feeds install -a 之后再放入：
+        # feeds update -a 末尾会自动 refresh_config 跑一次 defconfig；若此时 .config 已含 feed 包 =y 行，
+        # 而 package/feeds 链接尚未 install，符号不在 .in，种子行会被当不存在符号清掉且不再补回。
+        cp "$KIT_DIR/diy-part1.sh" "$KIT_DIR/diy-part2.sh" openwrt/
+        chmod +x openwrt/diy-part1.sh openwrt/diy-part2.sh
+        # 补回 fork 缺失的 base libffi 包（glib2/modemmanager 依赖）
+        mkdir -p openwrt/package/libs/libffi
+        cp "$KIT_DIR/packages/libffi/Makefile" openwrt/package/libs/libffi/Makefile
+        [ -d "$KIT_DIR/patches" ] && cp -r "$KIT_DIR/patches" openwrt/patches-ht20 || true
+        # wcn36xx.ko 由 mac80211 backports 包编译，补丁必须打进 backports 的 ath 补丁目录才会作用于实际固件
+        mkdir -p openwrt/package/kernel/mac80211/patches/ath
+        [ -d "$KIT_DIR/patches" ] && cp "$KIT_DIR/patches"/*.patch openwrt/package/kernel/mac80211/patches/ath/ || true
+        [ -d "$KIT_DIR/files" ] && cp -r "$KIT_DIR/files" openwrt/files || true
+
+    - name: diy1 + feeds
+      env:
+        EXTRA_FEEDS: ${{ inputs.extra_feeds && '1' || '0' }}
+      run: |
+        chmod +x openwrt/diy-part1.sh
+        cd openwrt && ./diy-part1.sh
+        ./scripts/feeds update -a
+        if [ -d feeds/smpackage ]; then
+          rm -rf feeds/smpackage/{base-files,dnsmasq,firewall*,fullconenat,libnftnl,nftables,ppp,opkg,ucl,upx,vsftpd*,miniupnpd-iptables,wireless-regdb}
+        fi
+        ./scripts/feeds install -a
+
+    - name: defconfig + 强制补依赖 + 校验
+      id: check
+      run: |
+        cd openwrt
+        # install 链接就位后再放入种子 .config，并跑 diy2 追加短信转发/openstick-tweaks
+        cp "$KIT_DIR/config.${{ steps.variant.outputs.variant }}" .config
+        ./diy-part2.sh
+        make defconfig
+        for pkg in libffi libpcre2; do
+          grep -q "^CONFIG_PACKAGE_${pkg}=y" .config || echo "CONFIG_PACKAGE_${pkg}=y" >> .config
+        done
+        make defconfig
+        grep -E '^CONFIG_TARGET_PROFILE=|^CONFIG_LINUX' .config
+        grep -q '^CONFIG_TARGET_PROFILE="DEVICE_openstick-ufi003"' .config || { echo "::error::机型未选中"; exit 1; }
+        echo "关键依赖:"; grep -E '^CONFIG_PACKAGE_(libffi|glib2|modemmanager|openstick)' .config
+
+    - name: 现场诊断采集（仅 ssh=true，输出进日志）
+      if: inputs.ssh
+      run: |
+        bash ufi001c/debug-inspect.sh 2>&1 | tee /tmp/inspect.log
+
+    - name: 校验预期应用（defconfig 后快速失败）
+      run: |
+        cd openwrt
+        V="${{ steps.variant.outputs.variant }}"
+        SEED="$GITHUB_WORKSPACE/$KIT_DIR/config.$V"
+        EXPECT="ttyd luci-app-ttyd luci-theme-argon zerotier luci-app-zerotier cloudflared luci-app-cloudflared luci-app-advanced curl wget-ssl bash jq"
+        PIN=tmp/.packageinfo
+        IN=tmp/.config-package.in
+        repo_of(){ awk -v P="Package: $1" '$0==P{f=1;next} /^Package: /{f=0} f&&/^Repository: /{print $2}' "$PIN"; }
+        dep_of(){ awk -v P="Package: $1" '$0==P{f=1;next} /^Package: /{f=0} f&&/^Depends: /{sub(/^Depends: /,"");print}' "$PIN"; }
+        arch_of(){ awk -v P="Package: $1" '$0==P{f=1;next} /^Package: /{f=0} f&&/^Arch: /{print $2}' "$PIN"; }
+        st_of(){ if grep -q "^CONFIG_PACKAGE_$1=y" .config; then echo y; elif grep -q "^# CONFIG_PACKAGE_$1 is not set" .config; then echo OFF; else echo NONE; fi; }
+        raw_of(){ grep -nE "^(# )?CONFIG_PACKAGE_$1(=y|=m| is not set)" .config | head -2 | sed 's/^/      raw: /'; }
+        outer_stack(){
+          awk -v T="config PACKAGE_$1" '
+          /^[[:space:]]*if[[:space:]]/ { s[++t]=$0; next }
+          /^[[:space:]]*menu[[:space:]]/ { s[++t]=$0; next }
+          /^[[:space:]]*choice/ { s[++t]=$0; next }
+          /^[[:space:]]*endif/ { t--; next }
+          /^[[:space:]]*endmenu/ { t--; next }
+          /^[[:space:]]*endchoice/ { t--; next }
+          $0 ~ T { for(i=1;i<=t;i++) print "      外层: "s[i]; exit }' "$IN"
+        }
+        rev_select(){
+          grep -nE "select PACKAGE_$1([[:space:]]|$)" "$IN" | while read -r l; do
+            ln=${l%%:*}; ow=$(awk -v L="$ln" 'NR<=L && /^[[:space:]]*config /{c=$0} END{print c}' "$IN")
+            echo "      被 $ow select @$ln"
+          done | head -6
+        }
+
+        echo "=== base HEAD / feed 提交 / 全局 ==="
+        echo "SEED=$SEED 存在=$([ -f "$SEED" ] && echo yes || echo NO)"
+        echo "base HEAD: $(git log -1 --format='%h %ci %s')"
+        for f in openstick packages luci routing telephony video smpackage store; do [ -d "feeds/$f/.git" ] && echo "  $f: $(git -C feeds/$f log -1 --format='%h %ci')"; done
+        grep -E '^CONFIG_(ARCH|TARGET_BOARD|TARGET_SUBTARGET|TARGET_PROFILE|TARGET_ARCH_PACKAGES|LIBC|USE_MUSL|LINUX_6)' .config
+
+        echo
+        echo "=== kconfig 完整输出（前 120 行，不过滤）==="
+        make defconfig 2>&1 | tee /tmp/defcfg2.log | head -120
+        echo "--- recursive/error/unknown/does not exist/broken 专项 ---"
+        grep -iE 'recursive|cyclic|error|unknown symbol|does not exist|no architecture|broken' /tmp/defcfg2.log | head -40
+
+        echo
+        echo "=== 种子全部 =y 包 defconfig 后状态（状态 / Repository / 包 / 依赖）==="
+        : > /tmp/state.txt
+        if [ -f "$SEED" ]; then
+        for pkg in $(grep -E '^CONFIG_PACKAGE_[^=]+=y' "$SEED" | sed -E 's/^CONFIG_PACKAGE_//; s/=y$//'); do
+          echo "$(st_of "$pkg")|$(repo_of "$pkg")|$pkg|$(dep_of "$pkg")" >> /tmp/state.txt
+        done
+        else
+          echo "!! 种子文件读不到: $SEED"
+        fi
+        echo "--- 状态 x Repository 统计 ---"
+        awk -F'|' '{c[$1"|"$2]++} END{for(k in c) print k"  "c[k]}' /tmp/state.txt | sort
+        echo "--- 非 y 清单 ---"
+        awk -F'|' '$1!="y"{print $1" ["$2"] "$3" :: "$4}' /tmp/state.txt | sort
+
+        echo
+        echo "=== 重点包：原始行 / 外层栈 / 反向 select / Depends / .in 块 ==="
+        BASELINE="libexpat libattr libconfig coreutils cgi-io libqmi libmbim glib2 libdbus libudev-zero luci-base"
+        for pkg in $EXPECT libuv libwebsockets-full libminiupnpc libnatpmp libnghttp2 libcurl $BASELINE; do
+          st=$(st_of "$pkg")
+          echo "--- $pkg [$st] repo=$(repo_of "$pkg") arch=$(arch_of "$pkg")"
+          echo "    Depends: $(dep_of "$pkg")"
+          raw_of "$pkg"
+          outer_stack "$pkg"
+          rev_select "$pkg"
+          link=$(find package/feeds -maxdepth 3 -name "$pkg" -type l 2>/dev/null | head -1)
+          echo "    link: ${link:-<package/feeds 无链接>}"
+          ln=$(grep -nE "^[[:space:]]*config PACKAGE_${pkg}\$" "$IN" | head -1 | cut -d: -f1)
+          if [ -n "$ln" ]; then
+            echo "    .in 块(行 $ln):"
+            sed -n "${ln},$((ln+12))p" "$IN" | sed 's/^/      /'
+          else
+            echo "    .in: 无 config 块"
+          fi
+        done
+
+        miss=""
+        for pkg in $EXPECT; do grep -q "^CONFIG_PACKAGE_${pkg}=y" .config || miss="$miss $pkg"; done
+        if [ -n "$miss" ]; then
+          echo "::error::defconfig 未选中以下预期包:$miss"
+          exit 1
+        fi
+        echo "全部预期应用已被 defconfig 选中"
+
+    - name: Download
+      run: |
+        cd openwrt
+        for i in 1 2 3 4 5; do make download -j8 && break; sleep 15; done
+        find dl -size -1024c -exec rm -f {} \;
+
+    - name: Compile
+      id: compile
+      run: |
+        cd openwrt
+        make -j"$(nproc)" || make -j1 || make -j1 V=s
+        echo "status=success" >> "$GITHUB_OUTPUT"
+        echo "FILE_DATE=_$(date +%Y%m%d%H%M)" >> "$GITHUB_ENV"
+
+    - name: 验证补丁（backports 源码）
+      if: steps.compile.outputs.status == 'success' && !cancelled()
+      run: |
+        cd openwrt
+        f=$(find build_dir -path '*backports-*/drivers/net/wireless/ath/wcn36xx/main.c' 2>/dev/null | head -1)
+        if [ -z "$f" ]; then echo "::error::找不到 backports 里的 wcn36xx main.c"; exit 1; fi
+        echo "检查文件: $f"
+        grep -q 'IEEE80211_CHAN_NO_HT40MINUS | IEEE80211_CHAN_NO_HT40PLUS' "$f" || { echo "::error::2GHz 信道表缺少 NO_HT40 标志"; exit 1; }
+        if awk '/wcn_band_2ghz = \{/,/^\};/' "$f" | grep -q 'IEEE80211_HT_CAP_SUP_WIDTH_20_40'; then
+          echo "::error::2GHz ht_cap 仍带 SUP_WIDTH_20_40，补丁第二处没生效"; exit 1
+        fi
+        awk '/wcn_band_2ghz = \{/,/^\};/' "$f" | grep -q 'ht_supported = true' || { echo "::error::ht_supported 被误删，11n 20MHz 会一起掉"; exit 1; }
+        echo "验证通过：backports wcn36xx 已禁 40MHz，11n 20MHz（MCS0-7）保留"
+
+    - name: 整理固件
+      id: organize
+      if: steps.compile.outputs.status == 'success' && !cancelled()
+      run: |
+        cd openwrt/bin/targets/*/*
+        rm -rf packages
+        cp "$GITHUB_WORKSPACE"/openwrt/.config config.used
+        ls -lh
+        echo "FIRMWARE=$PWD" >> "$GITHUB_ENV"
+        echo "status=success" >> "$GITHUB_OUTPUT"
+
+    - name: Upload
+      uses: actions/upload-artifact@v4
+      if: steps.organize.outputs.status == 'success' && !cancelled()
+      with:
+        name: ImmortalWrt_ufi001c_${{ steps.variant.outputs.variant }}${{ env.FILE_DATE }}
+        path: ${{ env.FIRMWARE }}
+        retention-days: 30
