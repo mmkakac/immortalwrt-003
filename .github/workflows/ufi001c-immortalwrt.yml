@@ -133,12 +133,18 @@ jobs:
         [ -d "$KIT_DIR/patches" ] && cp "$KIT_DIR/patches"/*.patch openwrt/package/kernel/mac80211/patches/ath/ || true
         [ -d "$KIT_DIR/files" ] && cp -r "$KIT_DIR/files" openwrt/files || true
         # 固化的 openstick feed（本地 src-link 接入，见 diy-part1.sh）
+        # 注意：自克隆模式下 openwrt 内已带一份 ufi001c/feed-openstick，cp -r 进已存在目录会再套一层
+        # （feed-openstick/feed-openstick）；先删目标再拷贝，保证幂等、不嵌套。
         mkdir -p openwrt/ufi001c
+        rm -rf openwrt/ufi001c/feed-openstick
         [ -d "$KIT_DIR/feed-openstick" ] && cp -r "$KIT_DIR/feed-openstick" openwrt/ufi001c/feed-openstick || true
         # 本地化源码快照：USE_SOURCE_DIR 指向（gc/android-tools/qcom-firmware），不再联网拉取这三个 lkiuyu 包
+        # 同上：先删已存在的目标目录，避免 cp -r 套出 vendor/<pkg>/<pkg> 嵌套副本（gc 的 CMake GLOB_RECURSE
+        # 会把嵌套副本也编进去，链接时 main / gc_uvc_create 多重定义）。
         mkdir -p openwrt/ufi001c/vendor
         for d in android-tools gc qcom-firmware; do
-          [ -d "$KIT_DIR/vendor/$d" ] && cp -r "$KIT_DIR/vendor/$d" openwrt/ufi001c/vendor/$d || true
+          rm -rf "openwrt/ufi001c/vendor/$d"
+          [ -d "$KIT_DIR/vendor/$d" ] && cp -r "$KIT_DIR/vendor/$d" "openwrt/ufi001c/vendor/$d" || true
         done
 
     - name: diy1 + feeds
@@ -179,7 +185,7 @@ jobs:
         cd openwrt
         V="${{ steps.variant.outputs.variant }}"
         SEED="$GITHUB_WORKSPACE/$KIT_DIR/config.$V"
-        EXPECT="ttyd luci-app-ttyd luci-theme-argon zerotier luci-app-zerotier cloudflared luci-app-cloudflared luci-app-advanced curl wget-ssl bash jq"
+        EXPECT="ttyd luci-app-ttyd luci-theme-argon zerotier luci-app-zerotier cloudflared luci-app-cloudflared luci-app-advanced luci-lua-runtime curl wget-ssl bash jq"
         PIN=tmp/.packageinfo
         IN=tmp/.config-package.in
         repo_of(){ awk -v P="Package: $1" '$0==P{f=1;next} /^Package: /{f=0} f&&/^Repository: /{print $2}' "$PIN"; }
@@ -243,7 +249,7 @@ jobs:
           rev_select "$pkg"
           link=$(find package/feeds -maxdepth 3 -name "$pkg" -type l 2>/dev/null | head -1)
           echo "    link: ${link:-<package/feeds 无链接>}"
-          ln=$(grep -nE "^[[:space:]]*config PACKAGE_${pkg}\$" "$IN" | head -1 | cut -d: -f1)
+          ln=$(grep -nE "^[[:space:]]*config PACKAGE_${pkg}$" "$IN" | head -1 | cut -d: -f1)
           if [ -n "$ln" ]; then
             echo "    .in 块(行 $ln):"
             sed -n "${ln},$((ln+12))p" "$IN" | sed 's/^/      /'
@@ -264,7 +270,7 @@ jobs:
       run: |
         cd openwrt
         for i in 1 2 3 4 5; do make download -j8 && break; sleep 15; done
-        find dl -size -1024c -exec rm -f {} \;
+        find dl -size -1024c -exec rm -f {} +
 
     - name: Compile
       id: compile
@@ -282,10 +288,10 @@ jobs:
         if [ -z "$f" ]; then echo "::error::找不到 backports 里的 wcn36xx main.c"; exit 1; fi
         echo "检查文件: $f"
         grep -q 'IEEE80211_CHAN_NO_HT40MINUS | IEEE80211_CHAN_NO_HT40PLUS' "$f" || { echo "::error::2GHz 信道表缺少 NO_HT40 标志"; exit 1; }
-        if awk '/wcn_band_2ghz = \{/,/^\};/' "$f" | grep -q 'IEEE80211_HT_CAP_SUP_WIDTH_20_40'; then
+        if awk '/wcn_band_2ghz = /,/^};/' "$f" | grep -q 'IEEE80211_HT_CAP_SUP_WIDTH_20_40'; then
           echo "::error::2GHz ht_cap 仍带 SUP_WIDTH_20_40，补丁第二处没生效"; exit 1
         fi
-        awk '/wcn_band_2ghz = \{/,/^\};/' "$f" | grep -q 'ht_supported = true' || { echo "::error::ht_supported 被误删，11n 20MHz 会一起掉"; exit 1; }
+        awk '/wcn_band_2ghz = /,/^};/' "$f" | grep -q 'ht_supported = true' || { echo "::error::ht_supported 被误删，11n 20MHz 会一起掉"; exit 1; }
         echo "验证通过：backports wcn36xx 已禁 40MHz，11n 20MHz（MCS0-7）保留"
 
     - name: 整理固件
