@@ -11,11 +11,8 @@ PKG_NAME:=gc
 PKG_VERSION:=20260310
 PKG_RELEASE:=1
 
-PKG_SOURCE_PROTO:=git
-PKG_SOURCE_URL:=https://github.com/lkiuyu/gc.git
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.xz
-PKG_SOURCE_VERSION:=1e2b4d9480cf75663212a2bb7c550f3aae07ef50
-PKG_MIRROR_HASH:=58f8ad3f91e8488acc6f034ba0da1efb13a39cfe94f397047a72be827c076bc3
+# 本地源码：随仓库 ufi001c/vendor/gc 备份（原 lkiuyu/gc @ 1e2b4d9），不再联网下载
+USE_SOURCE_DIR:=$(TOPDIR)/ufi001c/vendor/gc
 
 PKG_INSTALL:=1
 PKG_BUILD_PARALLEL:=1

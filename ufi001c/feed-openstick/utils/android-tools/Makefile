@@ -11,13 +11,9 @@ include $(TOPDIR)/rules.mk
 PKG_NAME:=android-tools
 PKG_VERSION:=4.2.2
 
-PKG_SOURCE_PROTO:=git
-PKG_SOURCE_URL:=https://github.com/lkiuyu/android-tools.git
-PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
-PKG_SOURCE_VERSION:= 6cea387346c9a49e0d7acbbe74f1cec62fcaec67
-PKG_MIRROR_HASH:=a8bf52d7892231e3fa91b9c91a116dc0b455de7bebce699871d7f9d96edefd8b
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION)-$(PKG_SOURCE_VERSION).tar.gz
-PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_SOURCE_SUBDIR)
+# 本地源码：随仓库 ufi001c/vendor/android-tools 备份（原 lkiuyu/android-tools @ 6cea387），不再联网下载
+USE_SOURCE_DIR:=$(TOPDIR)/ufi001c/vendor/android-tools
+PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
 PKG_MAINTAINER:=HandsomeYingyan <handsomeyingyan@gmail.com>
 
 include $(INCLUDE_DIR)/package.mk

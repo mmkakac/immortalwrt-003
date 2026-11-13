@@ -3,8 +3,9 @@
 本目录备份 openstick feed 各包编译所需的上游源码快照（按 Makefile 钉选的提交归档），
 用于上游仓库或 lkiuyu 个人仓库被删除后仍可复编。
 
-> 现状：feed 的 `Makefile` 默认仍从上游 URL 下载源码 tarball；本目录是**离线备份快照**，
-> 尚未把编译路径切到本地源码。上游在线时编译不读本目录；上游缺失时再按末尾「复编说明」切换。
+> 现状：**三个 lkiuyu 包**（android-tools、gc、qcom-firmware）已通过 `USE_SOURCE_DIR` 指向本目录本地源码，
+> 编译时不再联网下载；workflow 会把这三个目录复制进构建树 `ufi001c/vendor/`。
+> 上游开源的 qrtr、rmtfs、libusbgx、ModemManager 仍按 Makefile 在线拉取，本目录仅作离线备份快照。
 
 ## 已入库快照
 
@@ -38,7 +39,6 @@
 
 ## 复编说明
 
-- 上游在线：`Makefile` 照常 `make download` 拉取 tarball，本目录快照不参与编译。
-- 上游被删：把对应快照放到 `build_dir/<包>-<版本>`，或将 `PKG_SOURCE_URL` 改指本地路径，
-  用表中 `PKG_MIRROR_HASH` 校验完整性；qrtr/rmtfs/libusbgx/android-tools/gc 均为源码树，可直接作为本地源码目录接入。
-- 核心构建树、openstick feed 配方、种子配置与补丁已随本仓库根目录固化；本表只覆盖 feed 引用的外部源码。
+- **已本地化（不依赖在线）**：android-tools、gc、qcom-firmware 的 Makefile 用 `USE_SOURCE_DIR:=$(TOPDIR)/ufi001c/vendor/<目录>` 把本地快照链入 `PKG_BUILD_DIR`，跳过下载；qcom-firmware 的解包已裁剪为只处理 ufi003。
+- **仍在线拉取**：qrtr、rmtfs、libusbgx、ModemManager 上游开源，`make download` 照常取 tarball；若日后也要离线，可仿照上面用 `USE_SOURCE_DIR` 接入对应快照（ModemManager 需先解压 tar.gz）。
+- 校验完整性用表中 `PKG_MIRROR_HASH`；核心构建树、openstick feed 配方、种子配置与补丁已随本仓库根目录固化，本表只覆盖 feed 引用的外部源码。

@@ -135,6 +135,11 @@ jobs:
         # 固化的 openstick feed（本地 src-link 接入，见 diy-part1.sh）
         mkdir -p openwrt/ufi001c
         [ -d "$KIT_DIR/feed-openstick" ] && cp -r "$KIT_DIR/feed-openstick" openwrt/ufi001c/feed-openstick || true
+        # 本地化源码快照：USE_SOURCE_DIR 指向（gc/android-tools/qcom-firmware），不再联网拉取这三个 lkiuyu 包
+        mkdir -p openwrt/ufi001c/vendor
+        for d in android-tools gc qcom-firmware; do
+          [ -d "$KIT_DIR/vendor/$d" ] && cp -r "$KIT_DIR/vendor/$d" openwrt/ufi001c/vendor/$d || true
+        done
 
     - name: diy1 + feeds
       env:
