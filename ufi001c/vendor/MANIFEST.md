@@ -16,6 +16,10 @@
 | `rmtfs` | utils/rmtfs | https://github.com/linux-msm/rmtfs.git | `586372e575f5cc1a7cbb170219ab6df98f394cae` | 1.1.1 | `6086bb554c1f604a7e15d9010e3ccfea01cda88cb1df2978944f2a150136848d` |
 | `libusbgx` | libs/libusbgx | https://github.com/linux-usb-gadgets/libusbgx.git | `dbedf16f80c5b4e1807ea4f80cc89d1f15d36f0a` | 0.3.0 | `43ebc3de10dc5de12cc390e16330e2844166fb80b53c1f2a0b77b9a98970a368` |
 | `qcom-firmware` | firmware/qcom-firmware | https://github.com/lkiuyu/qcom-firmware.git | `e64f8cfd2a3aabe58633609f33e23c5c9d00730e` | 1034.2.4 | `0635114ff4d989bbfb24e7359bf6ce726398414be259a19cd4605924ed176437` |
+| `ModemManager` | net/modemmanager | https://gitlab.freedesktop.org/mobile-broadband/ModemManager.git | tag `1.24.0` | 1.24.0 | `b81e0fc5a112fa52dd7ec72cdb684e10b04755a3492ea392cf6cde5688bb0e03` |
+
+> **ModemManager** 以 gitlab 归档包 `ModemManager-1.24.0.tar.gz`（2.1M，sha256 `50e166bb24acb00bcaed814483920dfbc5b26d5424faee974b54c702e425a7c7`）存放，
+> 不是 Makefile 下载的 git tar.xz；离线接入时解压为本地源码目录，4 个补丁在 `feed-openstick/net/modemmanager/patches/`。
 
 > **qcom-firmware 仅归档本机 UFI003 所需的两个文件**，其余 16 台设备的 modem/nv blob 未入库：
 > - `openstick-ufi003-modem.bin`（64M，FAT 镜像，内含 mba/modem/WCNSS）sha256 `0f2e4425f13bbda6029b677208abcffcfb2e93e64f266d5a26c039009413f20f`
@@ -25,7 +29,6 @@
 
 | 包 / feed | 上游 URL | 钉选 | 未备份原因 |
 |---|---|---|---|
-| modemmanager | https://gitlab.freedesktop.org/mobile-broadband/ModemManager.git | 1.24.0 | freedesktop 上游大仓，删除风险低；gitlab 克隆在本环境被断开，未归档 |
 | packages feed | https://github.com/immortalwrt/packages.git | feeds.conf.default | 官方 feed 整树（约 73M），未备份 |
 | luci feed | https://github.com/immortalwrt/luci.git | feeds.conf.default | 官方 feed 整树（约 334M），未备份 |
 | routing / telephony / video feeds | https://github.com/openwrt/{routing,telephony,video}.git | feeds.conf.default | 官方 feed，未备份 |
