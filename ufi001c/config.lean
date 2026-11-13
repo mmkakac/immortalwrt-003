@@ -94,7 +94,9 @@ CONFIG_PACKAGE_luci-app-zerotier=y
 CONFIG_PACKAGE_cloudflared=y
 CONFIG_PACKAGE_luci-app-cloudflared=y
 # 文件管理：luci-app-advanced 内部捆绑的 fileassistant 面板（/admin/system/fileassistant，走 LuCI 80 口，无独立端口）
+# advanced 是旧版 Lua 应用，必须带上 Lua 运行时，否则控制器不被 ucode 版 LuCI 加载、菜单注册不出
 CONFIG_PACKAGE_luci-app-advanced=y
+CONFIG_PACKAGE_luci-lua-runtime=y
 
 # ---- glib2 依赖（libffi 由套件补回源码树 package/libs/libffi）----
 CONFIG_PACKAGE_libffi=y
