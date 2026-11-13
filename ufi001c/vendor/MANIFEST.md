@@ -15,12 +15,16 @@
 | `qrtr` | utils/qrtr | https://github.com/linux-msm/qrtr.git | `5923eea97377f4a3ed9121b358fd919e3659db7b` | 1.1 | `783cbf7846675eeeea7f24758c996f0fd144fb1e166ce6686afd7f7d89aaa3c6` |
 | `rmtfs` | utils/rmtfs | https://github.com/linux-msm/rmtfs.git | `586372e575f5cc1a7cbb170219ab6df98f394cae` | 1.1.1 | `6086bb554c1f604a7e15d9010e3ccfea01cda88cb1df2978944f2a150136848d` |
 | `libusbgx` | libs/libusbgx | https://github.com/linux-usb-gadgets/libusbgx.git | `dbedf16f80c5b4e1807ea4f80cc89d1f15d36f0a` | 0.3.0 | `43ebc3de10dc5de12cc390e16330e2844166fb80b53c1f2a0b77b9a98970a368` |
+| `qcom-firmware` | firmware/qcom-firmware | https://github.com/lkiuyu/qcom-firmware.git | `e64f8cfd2a3aabe58633609f33e23c5c9d00730e` | 1034.2.4 | `0635114ff4d989bbfb24e7359bf6ce726398414be259a19cd4605924ed176437` |
+
+> **qcom-firmware 仅归档本机 UFI003 所需的两个文件**，其余 16 台设备的 modem/nv blob 未入库：
+> - `openstick-ufi003-modem.bin`（64M，FAT 镜像，内含 mba/modem/WCNSS）sha256 `0f2e4425f13bbda6029b677208abcffcfb2e93e64f266d5a26c039009413f20f`
+> - `openstick-ufi003-nv.bin`（30K，WiFi nv 校准数据）sha256 `f85a3aeadcc9a496493cfd505e11d0110d62ac5d7d7ef7a2a1950e375f2297e1`
 
 ## 未入库（编译时仍联网拉取）
 
 | 包 / feed | 上游 URL | 钉选 | 未备份原因 |
 |---|---|---|---|
-| qcom-firmware | https://github.com/lkiuyu/qcom-firmware.git | `e64f8cfd2a3aabe58633609f33e23c5c9d00730e` / 1034.2.4 | 全设备 modem.bin 固件 blob 合计约 1G；本机 UFI003 仅需 `openstick-ufi003-modem.bin`(64M) + `openstick-ufi003-nv.bin`(30K)，是否入库待确认 |
 | modemmanager | https://gitlab.freedesktop.org/mobile-broadband/ModemManager.git | 1.24.0 | freedesktop 上游大仓，删除风险低；gitlab 克隆在本环境被断开，未归档 |
 | packages feed | https://github.com/immortalwrt/packages.git | feeds.conf.default | 官方 feed 整树（约 73M），未备份 |
 | luci feed | https://github.com/immortalwrt/luci.git | feeds.conf.default | 官方 feed 整树（约 334M），未备份 |
