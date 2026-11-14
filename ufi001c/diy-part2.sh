@@ -37,9 +37,7 @@ PROXY_PKGS=(
   luci-app-ssr-plus_INCLUDE_ChinaDNS_NG luci-app-ssr-plus_INCLUDE_GeoData
   luci-app-ssr-plus_INCLUDE_Http_Proxy luci-app-ssr-plus_INCLUDE_Kcptun
   luci-app-ssr-plus_INCLUDE_Mihomo luci-app-ssr-plus_INCLUDE_MosDNS
-  luci-app-ssr-plus_INCLUDE_NaiveProxy luci-app-ssr-plus_INCLUDE_NONE_V2RAY
-  luci-app-ssr-plus_INCLUDE_Shadowsocks_NONE_Client
-  luci-app-ssr-plus_INCLUDE_Shadowsocks_NONE_Server
+  luci-app-ssr-plus_INCLUDE_NaiveProxy
   luci-app-ssr-plus_INCLUDE_ShadowsocksR_Libev_Client
   luci-app-ssr-plus_INCLUDE_ShadowsocksR_Libev_Server
   luci-app-ssr-plus_INCLUDE_Shadowsocks_Rust_Client
@@ -70,6 +68,25 @@ PROXY_PKGS=(
 for p in "${PROXY_PKGS[@]}"; do
   echo "# CONFIG_PACKAGE_${p} is not set" >> .config
 done
+
+# ssr-plus 的 V2ray / Shadowsocks 选择是 choice，必须钉到 None。
+# 注意：不能把 None 选项本身封成 not set，否则 choice 只剩内核可选，
+# kconfig 会被迫选中 Xray 等内核（上一轮 xray-core 残留即此原因）。
+SSR_NONE_PKGS=(
+  luci-app-ssr-plus_INCLUDE_NONE_V2RAY
+  luci-app-ssr-plus_INCLUDE_Shadowsocks_NONE_Client
+  luci-app-ssr-plus_INCLUDE_Shadowsocks_NONE_Server
+)
+for p in "${SSR_NONE_PKGS[@]}"; do
+  echo "CONFIG_PACKAGE_${p}=y" >> .config
+done
+
+# 1c) clashoo 孤儿语言包：原配方 i18n 缺主程序依赖，且 DEFAULT 跟随简中自动安装，
+#     主程序没装也会被拉进固件。删掉该 DEFAULT，使语言包只在主程序安装时才带入。
+CLASHOO_MK=feeds/smpackage/luci-app-clashoo/Makefile
+if [ -f "$CLASHOO_MK" ]; then
+  sed -i '/DEFAULT:=LUCI_LANG_zh_Hans/d' "$CLASHOO_MK"
+fi
 
 # 2) openstick-tweaks 笔误修正
 grep -q '^CONFIG_PACKAGE_openstick-tweaks=y$' .config || echo 'CONFIG_PACKAGE_openstick-tweaks=y' >> .config
