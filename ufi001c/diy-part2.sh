@@ -6,6 +6,71 @@ for p in DbusSmsForwardCPlus DbusSmsForward smsmanager smstools3 sms-tool; do
   echo "# CONFIG_PACKAGE_${p} is not set" >> .config
 done
 
+# 1b) 封禁整组代理壳、子开关与代理内核
+# 背景：passwall / passwall2 / ssr-plus 的 INCLUDE_* 子开关是顶层 bool/choice，
+# 未被父程序门控，在 aarch64 上按架构默认 y；父程序虽未安装，其 select 仍会把
+# xray-core / 3proxy 等内核拉进固件。这里显式写 not set 覆盖 feed 默认值。
+# 未知符号 defconfig 阶段会自动忽略，不影响其他包。
+PROXY_PKGS=(
+  luci-app-passwall luci-app-passwall2 luci-app-ssr-plus luci-app-3cat
+  luci-app-clash luci-app-clashoo luci-app-openclash luci-app-xray
+  luci-app-microsocks luci-app-smartdns luci-app-smartdns_INCLUDE_WebUI
+  v2raya luci-i18n-clashoo-zh-cn
+  luci-app-passwall_INCLUDE_Haproxy luci-app-passwall_INCLUDE_Hysteria
+  luci-app-passwall_INCLUDE_NaiveProxy
+  luci-app-passwall_INCLUDE_Shadowsocks_Rust_Client
+  luci-app-passwall_INCLUDE_Shadowsocks_Rust_Server
+  luci-app-passwall_INCLUDE_Shadow_TLS luci-app-passwall_INCLUDE_Simple_Obfs
+  luci-app-passwall_INCLUDE_SingBox luci-app-passwall_INCLUDE_SmartDNS
+  luci-app-passwall_INCLUDE_V2ray_Geodata luci-app-passwall_INCLUDE_V2ray_Geoview
+  luci-app-passwall_INCLUDE_V2ray_Plugin luci-app-passwall_INCLUDE_Xray
+  luci-app-passwall_INCLUDE_Xray_Plugin
+  luci-app-passwall2_Basic_Core_All luci-app-passwall2_Basic_Core_SingBox
+  luci-app-passwall2_Basic_Core_Xray luci-app-passwall2_INCLUDE_Haproxy
+  luci-app-passwall2_INCLUDE_ShadowsocksR_Libev_Client
+  luci-app-passwall2_INCLUDE_ShadowsocksR_Libev_Server
+  luci-app-passwall2_INCLUDE_Shadowsocks_Rust_Client
+  luci-app-passwall2_INCLUDE_Shadowsocks_Rust_Server
+  luci-app-passwall2_INCLUDE_Simple_Obfs luci-app-passwall2_INCLUDE_V2ray_Plugin
+  luci-app-passwall2_Iptables_Transparent_Proxy
+  luci-app-passwall2_Nftables_Transparent_Proxy
+  luci-app-ssr-plus_INCLUDE_ChinaDNS_NG luci-app-ssr-plus_INCLUDE_GeoData
+  luci-app-ssr-plus_INCLUDE_Http_Proxy luci-app-ssr-plus_INCLUDE_Kcptun
+  luci-app-ssr-plus_INCLUDE_Mihomo luci-app-ssr-plus_INCLUDE_MosDNS
+  luci-app-ssr-plus_INCLUDE_NaiveProxy luci-app-ssr-plus_INCLUDE_NONE_V2RAY
+  luci-app-ssr-plus_INCLUDE_Shadowsocks_NONE_Client
+  luci-app-ssr-plus_INCLUDE_Shadowsocks_NONE_Server
+  luci-app-ssr-plus_INCLUDE_ShadowsocksR_Libev_Client
+  luci-app-ssr-plus_INCLUDE_ShadowsocksR_Libev_Server
+  luci-app-ssr-plus_INCLUDE_Shadowsocks_Rust_Client
+  luci-app-ssr-plus_INCLUDE_Shadowsocks_Rust_Server
+  luci-app-ssr-plus_INCLUDE_Shadowsocks_Simple_Obfs
+  luci-app-ssr-plus_INCLUDE_Shadowsocks_V2ray_Plugin
+  luci-app-ssr-plus_INCLUDE_Shadow_TLS luci-app-ssr-plus_INCLUDE_Xray
+  luci-app-ssr-plus_Iptables_Transparent_Proxy
+  luci-app-ssr-plus_Nftables_Transparent_Proxy
+  bsbf-autoconf-cellular bsbf-autoconf-dhcp bsbf-bonding bsbf-client-web
+  bsbf-mptcp bsbf-netspeed bsbf-quectel-usbnet bsbf-rate-limiting
+  xray-core xray-plugin xray-example v2ray-core v2ray-plugin v2ray-geoip
+  v2ray-geosite v2ray-geosite-ir sing-box sing-box-tiny trojan trojan-go
+  trojan-plus hysteria brook naiveproxy microsocks chinadns-ng smartdns
+  smartdns-ui dns2socks dns2socks-rust ipt2socks shadow-tls
+  simple-obfs-client simple-obfs-server
+  shadowsocks-libev-ss-local shadowsocks-libev-ss-redir shadowsocks-libev-ss-server
+  shadowsocks-libev-ss-tunnel shadowsocksr-libev-ssr-check shadowsocksr-libev-ssr-local
+  shadowsocksr-libev-ssr-nat shadowsocksr-libev-ssr-redir shadowsocksr-libev-ssr-server
+  shadowsocks-rust-sslocal shadowsocks-rust-ssmanager shadowsocks-rust-ssserver
+  shadowsocks-rust-ssservice shadowsocks-rust-ssurl gost gost_engine-util
+  ssocks ssocksd tuic-client tuic-server mihomo clashoo 3proxy
+  3proxy-lib-pam 3proxy-lib-pcre 3proxy-lib-ssl 3proxy-lib-strings
+  3proxy-lib-traffic 3proxy-lib-transparent 3proxy-mod-ftppr 3proxy-mod-mycrypt
+  3proxy-mod-pop3p 3proxy-mod-proxy 3proxy-mod-smtpp 3proxy-mod-socks
+  3proxy-mod-tcppm 3proxy-mod-tlspr 3proxy-mod-udppm
+)
+for p in "${PROXY_PKGS[@]}"; do
+  echo "# CONFIG_PACKAGE_${p} is not set" >> .config
+done
+
 # 2) openstick-tweaks 笔误修正
 grep -q '^CONFIG_PACKAGE_openstick-tweaks=y$' .config || echo 'CONFIG_PACKAGE_openstick-tweaks=y' >> .config
 
