@@ -1,0 +1,55 @@
+<%+header%>
+
+<link rel="stylesheet" href="/luci-static/resources/fileassistant/fb.css?v=@ver">
+<h2 name="content">文件管理【集成上传删除及安装，非专业人员请谨慎操作】</h2>
+<fieldset class="cbi-section fb-container">
+  <input id="current-path" type="text" class="current-path cbi-input-text" value="/"/>
+  <div class="panel-container">
+    <div class="panel-title">文件列表</div>
+    <button id="mkdir-toggle" class="cbi-button cbi-button-add">新建文件夹</button>
+    <button id="upload-toggle" class="upload-toggle cbi-button cbi-button-edit">上传文件</button>
+  </div>
+  <div class="upload-container" id="upload-container">
+    <input id="upload-file" name="upload-file" class="upload-file" type="file">
+    <button type="button" class="cbi-button cbi-input-apply">执行上传</button>
+  </div>
+  <div id="list-content"></div>
+</fieldset>
+
+<script src="/luci-static/resources/fileassistant/fb.js?v=@ver"></script>
+<script>
+(function () {
+  var btn = document.getElementById('mkdir-toggle');
+  if (!btn) { return; }
+  btn.onclick = function () {
+    var pathInput = document.getElementById('current-path');
+    var dir = pathInput.value.trim() || '/';
+    var name = prompt('请输入新建文件夹名称：');
+    if (!name) { return; }
+    name = name.trim();
+    var bad = String.fromCharCode(92);
+    if (!name || name === '.' || name === '..' || name.indexOf('/') > -1 || name.indexOf(bad) > -1) {
+      alert('文件夹名称不合法（不能包含斜杠，也不能为 . 或 ..）');
+      return;
+    }
+    var params = 'path=' + encodeURIComponent(dir) + '&name=' + encodeURIComponent(name);
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/cgi-bin/luci/admin/system/fileassistant/mkdir?' + params, true);
+    xhr.onload = function () {
+      if (xhr.status == 200) {
+        var res = JSON.parse(xhr.responseText);
+        if (res.ec === 0) {
+          location.reload();
+        } else {
+          alert('创建文件夹失败！');
+        }
+      } else {
+        alert('创建文件夹失败，请稍后再试...');
+      }
+    };
+    xhr.send();
+  };
+})();
+</script>
+
+<%+footer%>
