@@ -1,9 +1,20 @@
+# 3GPP IMS IPsec（VoLTE）所需的 XFRM/ESP 开关
+#
+# 背景：IMS 的 SIP REGISTER 强制要求 IPsec（P-CSCF 返回
+#   Security-Server: ipsec-3gpp;alg=hmac-md5-96;prot=esp）
+# 未开启时设备上 `ip xfrm state` 报：Cannot open netlink socket: Protocol not supported
+#
+# 注意：INET_ESP_OFFLOAD / INET6_ESP_OFFLOAD 是开启 INET_ESP / INET6_ESP 之后才
+#       出现的新符号（generic config 里没有），必须显式给值，否则非交互 kconfig
+#       在 syncconfig 阶段会停在 "(NEW)" 而报错退出。
 CONFIG_XFRM_USER=y
 CONFIG_XFRM_STATISTICS=y
 CONFIG_INET_ESP=y
 CONFIG_INET_AH=y
 CONFIG_INET6_ESP=y
 CONFIG_INET6_AH=y
+# CONFIG_INET_ESP_OFFLOAD is not set
+# CONFIG_INET6_ESP_OFFLOAD is not set
 CONFIG_CRYPTO_MD5=y
 CONFIG_CRYPTO_SHA1=y
 CONFIG_CRYPTO_CBC=y
